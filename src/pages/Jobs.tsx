@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Search,
   MapPin,
@@ -6,60 +6,86 @@ import {
   SlidersHorizontal,
 } from "lucide-react";
 import { Link } from "react-router-dom";
-import { mockJobs } from "../data/mockJobs";
+
+type Job = {
+  id: number;
+  title: string;
+  company: string;
+  location: string | null;
+  description: string | null;
+  requirements: string | null;
+  salary: string | null;
+  job_url: string | null;
+  source: string | null;
+  posted_at: string | null;
+  created_at: string;
+};
 
 export default function Jobs() {
+  const [jobs, setJobs] = useState<Job[]>([]);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("all");
   const [sort, setSort] = useState("match");
+  const [loading, setLoading] = useState(true);
+
+  // Get jobs from backend
+  useEffect(() => {
+    fetch("http://localhost:5000/api/jobs")
+      .then((res) => res.json())
+      .then((data) => {
+        console.log("BACKEND JOBS:", data);
+        setJobs(data.jobs || []);
+      })
+      .catch((error) => {
+        console.error("Failed to fetch jobs:", error);
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+  }, []);
 
   const filteredJobs = useMemo(() => {
-    let jobs = [...mockJobs];
+    let filtered = [...jobs];
 
     // Search
     if (search.trim()) {
       const query = search.toLowerCase();
 
-      jobs = jobs.filter((job) => {
+      filtered = filtered.filter((job) => {
         return (
-          job.title.toLowerCase().includes(query) ||
-          job.company.toLowerCase().includes(query) ||
-          job.location.toLowerCase().includes(query) ||
-          job.skills.some((skill) =>
-            skill.toLowerCase().includes(query)
-          )
+          job.title?.toLowerCase().includes(query) ||
+          job.company?.toLowerCase().includes(query) ||
+          job.location?.toLowerCase().includes(query) ||
+          job.description?.toLowerCase().includes(query) ||
+          job.requirements?.toLowerCase().includes(query)
         );
       });
     }
 
-    // Filters
-    if (filter === "strong") {
-      jobs = jobs.filter((job) => job.match >= 85);
-    }
-
-    if (filter === "fresher") {
-      jobs = jobs.filter((job) =>
-        job.experience.includes("0")
-      );
-    }
-
+    // Remote filter
     if (filter === "remote") {
-      jobs = jobs.filter((job) =>
-        job.location.toLowerCase().includes("remote")
+      filtered = filtered.filter((job) =>
+        job.location?.toLowerCase().includes("remote")
       );
     }
 
-    // Sorting
-    if (sort === "match") {
-      jobs.sort((a, b) => b.match - a.match);
-    }
-
+    // Sort
     if (sort === "latest") {
-      jobs.sort((a, b) => a.id.localeCompare(b.id));
+      filtered.sort((a, b) => b.id - a.id);
     }
 
-    return jobs;
-  }, [search, filter, sort]);
+    return filtered;
+  }, [jobs, search, filter, sort]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <p className="text-sm text-zinc-500">
+          Loading jobs...
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -112,8 +138,6 @@ export default function Jobs() {
       <div className="flex flex-wrap gap-2">
         {[
           ["all", "All"],
-          ["strong", "Strong Match"],
-          ["fresher", "Fresher"],
           ["remote", "Remote"],
         ].map(([value, label]) => (
           <button
@@ -156,51 +180,79 @@ export default function Jobs() {
                 </p>
 
                 <div className="mt-3 flex flex-wrap gap-4 text-xs text-zinc-500">
-                  <span className="flex items-center gap-1.5">
-                    <MapPin size={14} />
-                    {job.location}
-                  </span>
+                  {job.location && (
+                    <span className="flex items-center gap-1.5">
+                      <MapPin size={14} />
+                      {job.location}
+                    </span>
+                  )}
 
-                  <span className="flex items-center gap-1.5">
-                    <Clock3 size={14} />
-                    {job.posted}
-                  </span>
+                  {job.posted_at && (
+                    <span className="flex items-center gap-1.5">
+                      <Clock3 size={14} />
+                      {job.posted_at}
+                    </span>
+                  )}
 
-                  <span>{job.experience}</span>
+                  {job.source && (
+                    <span>
+                      Source: {job.source}
+                    </span>
+                  )}
                 </div>
               </div>
+            </div>
 
-              <div className="shrink-0 text-right">
-                <p className="text-lg font-semibold text-zinc-900">
-                  {job.match}%
+            {/* Description */}
+            {job.description && (
+              <p className="mt-4 line-clamp-2 text-sm text-zinc-500">
+                {job.description}
+              </p>
+            )}
+
+            {/* Requirements */}
+            {job.requirements && (
+              <div className="mt-4">
+                <p className="text-xs font-medium text-zinc-500">
+                  Requirements
                 </p>
 
-                <p className="text-xs text-zinc-500">
-                  match
+                <p className="mt-1 text-sm text-zinc-600">
+                  {job.requirements}
                 </p>
               </div>
-            </div>
+            )}
 
-            {/* Skills */}
-            <div className="mt-4 flex flex-wrap gap-2">
-              {job.skills.map((skill) => (
-                <span
-                  key={skill}
-                  className="rounded-md bg-zinc-50 px-2.5 py-1 text-xs text-zinc-600 ring-1 ring-inset ring-zinc-200"
-                >
-                  {skill}
-                </span>
-              ))}
-            </div>
+            {/* Salary */}
+            {job.salary && (
+              <p className="mt-3 text-sm font-medium text-zinc-700">
+                Salary: {job.salary}
+              </p>
+            )}
 
             {/* Action */}
-            <div className="mt-5 border-t border-zinc-100 pt-4">
-              <Link
-                to={`/jobs/${job.id}`}
-                className="text-sm font-medium text-zinc-900 hover:underline"
-              >
-                View job →
-              </Link>
+            <div className="mt-5 flex items-center justify-between border-t border-zinc-100 pt-4">
+              <span className="text-xs text-zinc-400">
+                Job #{job.id}
+              </span>
+
+              {job.job_url ? (
+                <a
+                  href={job.job_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm font-medium text-zinc-900 hover:underline"
+                >
+                  Apply / View job →
+                </a>
+              ) : (
+                <Link
+                  to={`/jobs/${job.id}`}
+                  className="text-sm font-medium text-zinc-900 hover:underline"
+                >
+                  View job →
+                </Link>
+              )}
             </div>
           </div>
         ))}

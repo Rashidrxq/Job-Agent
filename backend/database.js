@@ -18,6 +18,21 @@ db.exec(`
     ats_score INTEGER,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );
+
+  CREATE TABLE IF NOT EXISTS jobs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    adzuna_id TEXT UNIQUE,
+    title TEXT NOT NULL,
+    company TEXT NOT NULL,
+    location TEXT,
+    description TEXT,
+    requirements TEXT,
+    salary TEXT,
+    job_url TEXT,
+    source TEXT,
+    posted_at TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
 `);
 
 console.log("Database ready");

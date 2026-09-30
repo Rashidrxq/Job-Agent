@@ -9,9 +9,12 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Resume routes
+// Routes
 const resumeRoutes = require("./routes/resumes");
+const jobRoutes = require("./routes/jobs");
+
 app.use("/api/resumes", resumeRoutes);
+app.use("/api/jobs", jobRoutes);
 
 // Health check
 app.get("/api/health", (req, res) => {
