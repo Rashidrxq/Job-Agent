@@ -1,0 +1,38 @@
+export const mockApplications = [
+  {
+    id: "1",
+    company: "ABC Technologies",
+    role: "Frontend Developer",
+    location: "Calicut, Kerala",
+    appliedDate: "Sep 30, 2026",
+    status: "Sent",
+    resume: "Frontend Resume",
+  },
+  {
+    id: "2",
+    company: "TechNova",
+    role: "Junior React Developer",
+    location: "Kochi, Kerala",
+    appliedDate: "Sep 29, 2026",
+    status: "Interview",
+    resume: "Frontend Resume",
+  },
+  {
+    id: "3",
+    company: "CodeLabs",
+    role: "Software Engineer",
+    location: "Bangalore, India",
+    appliedDate: "Sep 27, 2026",
+    status: "No Response",
+    resume: "Software Engineer Resume",
+  },
+  {
+    id: "4",
+    company: "DigitalWorks",
+    role: "Full Stack Developer",
+    location: "Remote",
+    appliedDate: "Sep 25, 2026",
+    status: "Rejected",
+    resume: "Full Stack Resume",
+  },
+];
