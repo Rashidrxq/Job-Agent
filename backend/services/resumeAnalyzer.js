@@ -1,113 +1,206 @@
-const skillGroups = {
-  programming: [
-    "Python",
-    "JavaScript",
-    "TypeScript",
-    "Java",
-    "C",
-    "C++",
-    "C#",
-    "PHP",
-    "Go",
-    "Rust",
-  ],
+function normalizeText(text) {
+  return text
+    .replace(/\s+/g, " ")
+    .trim();
+}
 
-  frontend: [
-    "React",
-    "Next.js",
-    "Vue",
-    "Angular",
-    "HTML",
-    "CSS",
-    "Tailwind",
-    "Bootstrap",
-  ],
+function containsSkill(text, skill) {
+  const normalized = text.toLowerCase();
+  const target = skill.toLowerCase();
 
-  backend: [
-    "Node.js",
-    "Express",
-    "Flask",
-    "Django",
-    "Spring",
-    "REST API",
-  ],
+  // Escape regex characters
+  const escaped = target.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
-  database: [
-    "SQL",
-    "MySQL",
-    "PostgreSQL",
-    "SQLite",
-    "MongoDB",
-    "Prisma",
-  ],
+  // Word-boundary matching prevents partial matches
+  const regex = new RegExp(`\\b${escaped}\\b`, "i");
 
-  tools: [
-    "Git",
-    "GitHub",
-    "Docker",
-    "AWS",
-    "Azure",
-    "Excel",
-  ],
+  return regex.test(normalized);
+}
 
-  ai_ml: [
-    "Machine Learning",
-    "Deep Learning",
-    "TensorFlow",
-    "PyTorch",
-    "YOLO",
-    "Pandas",
-    "NumPy",
-  ],
-};
+function analyzeResume(text) {
+  if (!text || typeof text !== "string") {
+    throw new Error("Resume text is required");
+  }
 
-function extractSkills(text) {
-  const found = [];
-  const normalizedText = text.toLowerCase();
+  const normalizedText = normalizeText(text);
 
-  for (const skills of Object.values(skillGroups)) {
-    for (const skill of skills) {
-      if (normalizedText.includes(skill.toLowerCase())) {
-        if (!found.includes(skill)) {
-          found.push(skill);
-        }
+  /*
+   * Skills are deliberately grouped.
+   * Only skills actually detected in the resume are returned.
+   */
+  const skillGroups = {
+    programming: [
+      "Python",
+      "C",
+      "C++",
+      "Java",
+      "JavaScript",
+      "TypeScript",
+      "SQL",
+    ],
+
+    frontend: [
+      "HTML5",
+      "HTML",
+      "CSS3",
+      "CSS",
+      "React",
+      "Bootstrap",
+    ],
+
+    backend: [
+      "Node.js",
+      "Express.js",
+      "Express",
+      "Flask",
+      "FastAPI",
+      "PHP",
+    ],
+
+    databases: [
+      "MySQL",
+      "PostgreSQL",
+      "SQLite",
+      "MongoDB",
+    ],
+
+    ai_ml: [
+      "YOLOv8",
+      "YOLO",
+      "EfficientNet",
+      "Deep Learning",
+      "Machine Learning",
+      "Computer Vision",
+    ],
+
+    tools: [
+      "Git",
+      "GitHub",
+      "Postman",
+      "Visual Studio Code",
+      "Google Workspace",
+      "Selenium",
+    ],
+
+    concepts: [
+      "Data Structures",
+      "Algorithms",
+      "Object-Oriented Programming",
+      "OOP",
+      "RESTful APIs",
+      "REST APIs",
+      "Database Design",
+      "Authentication",
+      "Authorization",
+      "CRUD",
+      "Debugging",
+      "Software Testing",
+      "SDLC",
+    ],
+  };
+
+  const skills = {};
+  const allSkills = [];
+
+  for (const [group, groupSkills] of Object.entries(skillGroups)) {
+    skills[group] = [];
+
+    for (const skill of groupSkills) {
+      if (containsSkill(normalizedText, skill)) {
+        skills[group].push(skill);
+        allSkills.push(skill);
       }
     }
   }
 
-  return found;
-}
+  /*
+   * Extract education
+   */
+  const education = [];
 
-function calculateAtsScore(text, skills) {
-  let score = 0;
-
-  if (text.length > 500) score += 20;
-  if (text.length > 1500) score += 10;
-
-  if (/education/i.test(text)) score += 15;
-  if (/experience/i.test(text)) score += 15;
-  if (/projects/i.test(text)) score += 15;
-  if (/skills/i.test(text)) score += 10;
-
-  if (skills.length >= 5) score += 5;
-  if (skills.length >= 10) score += 5;
-  if (skills.length >= 15) score += 5;
-
-  return Math.min(score, 100);
-}
-
-function analyzeResume(text) {
-  if (!text || !text.trim()) {
-    throw new Error("Resume text is empty");
+  if (/b\.?tech/i.test(normalizedText)) {
+    education.push("B.Tech");
   }
 
-  const skills = extractSkills(text);
-  const atsScore = calculateAtsScore(text, skills);
+  if (/information technology/i.test(normalizedText)) {
+    education.push("Information Technology");
+  }
+
+  /*
+   * Extract experience
+   */
+  const experience = [];
+
+  const internshipRegex =
+    /software developer intern[\s\S]{0,200}/i;
+
+  if (internshipRegex.test(text)) {
+    experience.push("Software Developer Intern");
+  }
+
+  /*
+   * Extract projects
+   */
+  const projects = [];
+
+  const projectNames = [
+    "AI-Based Poultry Disease Detection System",
+    "CodePilot",
+    "Attendance Management System",
+  ];
+
+  for (const project of projectNames) {
+    if (containsSkill(normalizedText, project)) {
+      projects.push(project);
+    }
+  }
+
+  /*
+   * Basic ATS completeness score.
+   *
+   * This is NOT a job-match score.
+   */
+  let atsScore = 0;
+
+  const sections = [
+    /professional summary/i,
+    /technical skills/i,
+    /projects/i,
+    /internship experience/i,
+    /education/i,
+    /certifications/i,
+  ];
+
+  for (const section of sections) {
+    if (section.test(text)) {
+      atsScore += 10;
+    }
+  }
+
+  if (allSkills.length >= 5) {
+    atsScore += 10;
+  }
+
+  if (allSkills.length >= 10) {
+    atsScore += 10;
+  }
+
+  atsScore = Math.min(100, atsScore);
 
   return {
-    skills,
     atsScore,
-    textLength: text.length,
+
+    skills,
+
+    totalSkills: allSkills.length,
+
+    education,
+
+    experience,
+
+    projects,
+
+    textLength: normalizedText.length,
   };
 }
 

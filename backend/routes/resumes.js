@@ -1,8 +1,10 @@
 const express = require("express");
 const multer = require("multer");
 const path = require("path");
+
 const db = require("../database");
 const { extractResumeText } = require("../services/resumeParser");
+const { analyzeResume } = require("../services/resumeAnalyzer");
 
 const router = express.Router();
 
@@ -21,7 +23,10 @@ const storage = multer.diskStorage({
   },
 });
 
-// Allow only PDF and DOCX files
+// ===============================
+// ALLOW ONLY PDF AND DOCX
+// ===============================
+
 const upload = multer({
   storage,
 
@@ -79,7 +84,7 @@ router.get("/", (req, res) => {
 
 router.post("/", upload.single("resume"), async (req, res) => {
   try {
-    // Check if file exists
+    // Check file
     if (!req.file) {
       return res.status(400).json({
         success: false,
@@ -92,13 +97,32 @@ router.post("/", upload.single("resume"), async (req, res) => {
       req.body.name ||
       req.file.originalname.replace(/\.(pdf|docx)$/i, "");
 
-    // Extract resume text
+    // ===============================
+    // EXTRACT TEXT
+    // ===============================
+
     const text = await extractResumeText(
       req.file.path,
       req.file.mimetype
     );
 
-    // Save resume information + extracted text
+    if (!text || !text.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: "Could not extract text from resume",
+      });
+    }
+
+    // ===============================
+    // ANALYZE RESUME
+    // ===============================
+
+    const analysis = analyzeResume(text);
+
+    // ===============================
+    // SAVE TO DATABASE
+    // ===============================
+
     const statement = db.prepare(`
       INSERT INTO resumes (
         name,
@@ -106,9 +130,11 @@ router.post("/", upload.single("resume"), async (req, res) => {
         file_path,
         file_type,
         file_size,
-        text
+        text,
+        ats_score,
+        resume_analysis
       )
-      VALUES (?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     const result = statement.run(
@@ -117,19 +143,27 @@ router.post("/", upload.single("resume"), async (req, res) => {
       req.file.path,
       req.file.mimetype,
       req.file.size,
-      text
+      text,
+      analysis.atsScore,
+      JSON.stringify(analysis)
     );
 
-    // Send response
+    // ===============================
+    // RESPONSE
+    // ===============================
+
     res.status(201).json({
       success: true,
-      message: "Resume uploaded and text extracted successfully",
+      message: "Resume uploaded and analyzed successfully",
+
       resume: {
         id: result.lastInsertRowid,
         name,
         fileName: req.file.originalname,
         fileSize: req.file.size,
         textLength: text.length,
+        atsScore: analysis.atsScore,
+        analysis,
       },
     });
   } catch (error) {
@@ -138,6 +172,7 @@ router.post("/", upload.single("resume"), async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Failed to upload and process resume",
+      error: error.message,
     });
   }
 });

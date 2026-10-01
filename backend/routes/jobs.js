@@ -1,11 +1,107 @@
 const express = require("express");
 const db = require("../database");
+const { calculateJobMatch } = require("../services/jobMatcher");
+const { importAdzunaJobs } = require("../services/importJobs");
 
 const router = express.Router();
 
+// =====================================================
+// GET ALL JOBS + RESUME MATCH
 // GET /api/jobs
+// =====================================================
 
+router.get("/", (req, res) => {
+  try {
+    // Get the latest analyzed resume
+    const resume = db
+      .prepare(`
+        SELECT id, resume_analysis
+        FROM resumes
+        WHERE resume_analysis IS NOT NULL
+        ORDER BY id DESC
+        LIMIT 1
+      `)
+      .get();
+
+    // Get all jobs
+    const jobs = db
+      .prepare(`
+        SELECT *
+        FROM jobs
+        ORDER BY id DESC
+      `)
+      .all();
+
+    let analyzedJobs = jobs;
+
+    // Calculate match if an analyzed resume exists
+    if (resume) {
+      let resumeAnalysis;
+
+      try {
+        resumeAnalysis = JSON.parse(resume.resume_analysis);
+      } catch (error) {
+        console.error("RESUME ANALYSIS JSON ERROR:", error);
+        resumeAnalysis = null;
+      }
+
+          if (resumeAnalysis) {
+      analyzedJobs = jobs.map((job) => {
+        const match = calculateJobMatch(
+          resumeAnalysis,
+          job
+        );
+
+        return {
+          ...job,
+
+          matchScore: match.score,
+
+          matchedSkills: match.matchedSkills,
+
+          missingSkills: match.missingSkills,
+
+          match: {
+            score: match.score,
+            matchedSkills: match.matchedSkills,
+            missingSkills: match.missingSkills,
+          },
+        };
+      });
+
+  // Highest match first
+  analyzedJobs.sort((a, b) => {
+    return b.matchScore - a.matchScore;
+  });
+}
+    }
+
+    res.json({
+      success: true,
+
+      resume: resume
+        ? {
+            id: resume.id,
+          }
+        : null,
+
+      jobs: analyzedJobs,
+    });
+  } catch (error) {
+    console.error("GET JOBS ERROR:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch jobs",
+    });
+  }
+});
+
+// =====================================================
+// CREATE JOB
 // POST /api/jobs
+// =====================================================
+
 router.post("/", (req, res) => {
   try {
     const {
@@ -69,32 +165,11 @@ router.post("/", (req, res) => {
   }
 });
 
-router.get("/", (req, res) => {
-  try {
-    const jobs = db
-      .prepare(`
-        SELECT *
-        FROM jobs
-        ORDER BY id DESC
-      `)
-      .all();
-
-    res.json({
-      success: true,
-      jobs,
-    });
-  } catch (error) {
-    console.error("GET JOBS ERROR:", error);
-
-    res.status(500).json({
-      success: false,
-      message: "Failed to fetch jobs",
-    });
-  }
-});
-const { importAdzunaJobs } = require("../services/importJobs");
-
+// =====================================================
+// IMPORT ADZUNA JOBS
 // POST /api/jobs/import
+// =====================================================
+
 router.post("/import", async (req, res) => {
   try {
     const result = await importAdzunaJobs({
@@ -109,7 +184,10 @@ router.post("/import", async (req, res) => {
       ...result,
     });
   } catch (error) {
-    console.error("IMPORT JOBS ERROR:", error.message);
+    console.error(
+      "IMPORT JOBS ERROR:",
+      error.message
+    );
 
     res.status(500).json({
       success: false,
@@ -118,4 +196,5 @@ router.post("/import", async (req, res) => {
     });
   }
 });
+
 module.exports = router;
